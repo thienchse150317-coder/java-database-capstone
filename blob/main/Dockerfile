@@ -1,22 +1,16 @@
-# Use a base image with Java
-FROM openjdk:17-jdk-slim AS build
-
-# Set the working directory
+# Stage 1: Build the application
+FROM maven:3.9.4-eclipse-temurin-17 AS build
 WORKDIR /app
-
-# Copy the Maven/Gradle wrapper and project files
 COPY . .
+RUN mvn clean package -DskipTests
 
-# If using Maven, build the jar file
-RUN ./mvnw clean package -DskipTests
-
-# Use a smaller runtime image for efficiency
-FROM openjdk:17-jdk-slim
-
+# Stage 2: Run the application
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-
-# Copy only the built jar file from the build stage
 COPY --from=build /app/target/*.jar app.jar
 
+# Expose Spring Boot default port
+EXPOSE 8080
+
 # Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java","-jar","app.jar"]

@@ -1,12 +1,6 @@
-package com.project.back_end.services;
-
-import com.project.back_end.model.Doctor;
-import com.project.back_end.repo.DoctorRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class DoctorService {
@@ -14,23 +8,29 @@ public class DoctorService {
     @Autowired
     private DoctorRepository doctorRepository;
 
-    // Get all doctors
-    public List<Doctor> getAllDoctors() {
-        return doctorRepository.findAll();
-    }
+    @Autowired
+    private AppointmentRepository appointmentRepository;
 
-    // Get doctor by ID
-    public Optional<Doctor> getDoctorById(Long id) {
-        return doctorRepository.findById(id);
-    }
+    // Lấy tất cả khung giờ rảnh của bác sĩ trong ngày
+    public List<LocalDateTime> getAvailableTimeSlots(Long doctorId, LocalDate date) {
+        // giả sử bệnh viện làm từ 8h sáng đến 5h chiều, mỗi slot 1 tiếng
+        List<LocalDateTime> allSlots = List.of(
+            date.atTime(8, 0),
+            date.atTime(9, 0),
+            date.atTime(10, 0),
+            date.atTime(11, 0),
+            date.atTime(14, 0),
+            date.atTime(15, 0),
+            date.atTime(16, 0)
+        );
 
-    // Save or update doctor
-    public Doctor saveDoctor(Doctor doctor) {
-        return doctorRepository.save(doctor);
-    }
+        // lấy slot đã có hẹn từ bảng Appointment
+        List<LocalDateTime> bookedSlots = appointmentRepository
+                .findByDoctorIdAndDate(doctorId, date);
 
-    // Delete doctor by ID
-    public void deleteDoctor(Long id) {
-        doctorRepository.deleteById(id);
+        // trả về slot còn trống
+        return allSlots.stream()
+                .filter(slot -> !bookedSlots.contains(slot))
+                .toList();
     }
 }

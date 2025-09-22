@@ -1,58 +1,37 @@
-package com.project.back_end.controllers;
-
-import com.project.back_end.models.Doctor;
-import java.util.ArrayList;
-import java.util.List;
-
+@RestController
+@RequestMapping("/api/doctors")
 public class DoctorController {
 
-    private List<Doctor> doctors;
+    @Autowired
+    private DoctorService doctorService;
 
-    public DoctorController() {
-        this.doctors = new ArrayList<>();
-    }
+    @Autowired
+    private TokenService tokenService; // service để validate token
 
-    // Create doctor
-    public void addDoctor(Doctor doctor) {
-        doctors.add(doctor);
-        System.out.println("Doctor added: " + doctor.getName());
-    }
+    // Các CRUD method hiện có ...
 
-    // Read all doctors
-    public List<Doctor> getAllDoctors() {
-        return doctors;
-    }
+    @GetMapping("/{id}/availability")
+    public ResponseEntity<?> getDoctorAvailability(
+            @PathVariable Long id,
+            @RequestParam String date,
+            @RequestHeader("Authorization") String token) {
 
-    // Find doctor by ID
-    public Doctor getDoctorById(int id) {
-        for (Doctor doctor : doctors) {
-            if (doctor.getDoctorId() == id) {
-                return doctor;
-            }
+        // 1. Kiểm tra token
+        if (!tokenService.isValid(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                 .body("Invalid token");
         }
-        return null;
-    }
 
-    // Update doctor info
-    public boolean updateDoctor(int id, String newName, String newSpecialty) {
-        Doctor doctor = getDoctorById(id);
-        if (doctor != null) {
-            doctor.setName(newName);
-            doctor.setSpecialty(newSpecialty);
-            System.out.println("Doctor updated: " + doctor.getName());
-            return true;
+        // 2. Kiểm tra role (ví dụ chỉ admin hoặc patient được xem)
+        String role = tokenService.getRoleFromToken(token);
+        if (!role.equals("ADMIN") && !role.equals("PATIENT")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                 .body("Access denied");
         }
-        return false;
-    }
 
-    // Delete doctor
-    public boolean deleteDoctor(int id) {
-        Doctor doctor = getDoctorById(id);
-        if (doctor != null) {
-            doctors.remove(doctor);
-            System.out.println("Doctor deleted: " + doctor.getName());
-            return true;
-        }
-        return false;
+        // 3. Lấy danh sách thời gian rảnh của bác sĩ
+        List<String> availableTimes = doctorService.getAvailableTimes(id, date);
+
+        return ResponseEntity.ok(availableTimes);
     }
 }

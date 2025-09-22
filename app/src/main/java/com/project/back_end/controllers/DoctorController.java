@@ -1,37 +1,40 @@
-@RestController
-@RequestMapping("/api/doctors")
-public class DoctorController {
+@GetMapping("/doctors/{id}/availability/{date}/{token}")
+public ResponseEntity<Map<String, Object>> getDoctorAvailability(
+        @PathVariable("id") String doctorId,
+        @PathVariable("date") String date,
+        @PathVariable("token") String token) {
 
-    @Autowired
-    private DoctorService doctorService;
+    Map<String, Object> response = new HashMap<>();
 
-    @Autowired
-    private TokenService tokenService; // service để validate token
-
-    // Các CRUD method hiện có ...
-
-    @GetMapping("/{id}/availability")
-    public ResponseEntity<?> getDoctorAvailability(
-            @PathVariable Long id,
-            @RequestParam String date,
-            @RequestHeader("Authorization") String token) {
-
-        // 1. Kiểm tra token
-        if (!tokenService.isValid(token)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                                 .body("Invalid token");
+    try {
+        // ✅ Kiểm tra token hợp lệ
+        if (!tokenService.validateToken(token)) {
+            response.put("status", "error");
+            response.put("message", "Invalid token");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
 
-        // 2. Kiểm tra role (ví dụ chỉ admin hoặc patient được xem)
+        // ✅ Lấy role từ token
         String role = tokenService.getRoleFromToken(token);
-        if (!role.equals("ADMIN") && !role.equals("PATIENT")) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                 .body("Access denied");
+        if (!"admin".equalsIgnoreCase(role) && !"staff".equalsIgnoreCase(role)) {
+            response.put("status", "error");
+            response.put("message", "Access denied: insufficient permissions");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
         }
 
-        // 3. Lấy danh sách thời gian rảnh của bác sĩ
-        List<String> availableTimes = doctorService.getAvailableTimes(id, date);
+        // ✅ Lấy danh sách lịch trống
+        List<Availability> availabilityList = doctorService.getAvailabilityByDoctorAndDate(doctorId, date);
 
-        return ResponseEntity.ok(availableTimes);
+        response.put("status", "success");
+        response.put("doctorId", doctorId);
+        response.put("date", date);
+        response.put("availability", availabilityList);
+
+        return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+        response.put("status", "error");
+        response.put("message", "Server error: " + e.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 }
